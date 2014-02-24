@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>Kartz</title>
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="viewport" content="width=device-width,target-densitydpi=device-dpi, initial-scale=1, maximum-scale=1, user-scalable=no" />
+
+		<!--[if lt IE 9]>
+		<script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+		<![endif]-->
+
+		<link href='http://fonts.googleapis.com/css?family=Press+Start+2P' rel='stylesheet' type='text/css'>
+
+		<style type="text/css">
+		canvas{
+			padding-top:5px;
+		}
+		body,html{
+			margin: 0px;
+			padding: 0px;
+			background: #000;
+			overflow-x: hidden; 
+			overflow-y: hidden;
+			font-family: 'Press Start 2P', cursive;
+			color:#fff;
+		}
+		.controls{
+			position: relative;
+			width: 450px;
+			text-align: center;
+			padding-top: 10px;
+		}
+		.controls>a{
+			width:75px;
+			height:75px;
+			background-color: #bbb;
+			display: inline-block;
+			line-height: 75px;
+			text-align: center;
+			font-size: 30px;
+			text-decoration: none;
+		}
+		.controls>a.spacer{
+			background-color: #666;
+		}
+		.main_menu{
+			position: absolute;
+			width: 100%;
+			height: 100%;
+			display: table;
+			text-align: center; 
+		}
+		.button{   
+			width: 300px;
+			height: 50px;
+			font-size:25px;
+			line-height: 40px;
+			margin: 0px auto;
+			cursor: pointer;
+			margin-bottom: 10px;
+		}
+		.game{
+			display: none;
+		}
+		.logo{
+			font-size:50px;
+			padding-bottom: 100px;
+		}
+		.game_over{ 
+			position: absolute;
+			left:0px;
+			top:0px;
+			width: 100%;
+			height: 100%;
+			background: #000;
+			text-align: center; 
+			font-size: 40px;
+			display: none;
+			color: white;
+		}
+		.game_over input{
+			text-align: center;
+			font-family: 'Press Start 2P', cursive;
+			width: 300px;
+			height: 50px;
+			font-size: 30px;
+			padding: 3px;
+			margin: 20px 0px;
+			background: black;
+			color: red;
+			text-transform:uppercase;
+		}
+		.container{
+			display: table-cell;
+			vertical-align: middle;
+		}
+		</style>
+	</head>
+
+	<body>
+		<!-- Lets make a simple snake game -->
+		<div class="main_menu">
+			<div class="container">
+				<div class="logo">KARTZ</div>
+				<div class="button">START</div>
+				<div class="button">TOP SCORES</div>
+				<div class="button">OPTIONS</div>
+			</div>
+		</div>
+		<div class="game">
+			<canvas id="canvas" width="0" height="0"></canvas>
+			<div class="controls">
+				<a class="up" href="">&#9650;</a><br/><a class="left" href="">&#9668;</a><a class="spacer">&nbsp;</a><a class="right" href="">&#9658;</a><br/><a class="down" href="">&#9660;</a>
+			</div>		
+		</div>
+		<div class="game_over">
+			<div class="container">
+			ENTER NAME<br/>
+			<input type="text" maxlength="9" /><br/>
+			<div class="button">SAVE</div> 
+			</div>
+		</div>
+		<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
+		<script type="text/javascript">
+			$(document).ready(function(){
+				var canvas = $("#canvas")[0];
+				var ctx = canvas.getContext("2d");
+				var w = $(window).width();
+				var h = w;
+				var cw = 0.05* w;
+				var d;
+				var food;
+				var score;
+				var hi_score = 0;
+				var snake_array;
+				var controls_height = $(window).height() - h - 30;
+				$(canvas).attr('width', w);
+				$(canvas).attr('height', h);
+				$('.controls').css({
+					'width': w,
+					'height': controls_height
+				}).find('a').css({
+					'height':controls_height/3,
+					'width':controls_height/3,
+					'line-height':controls_height/3+'px'
+				}); 
+
+
+				//bind controls
+				$('.controls>.up').on('click', function(e) {
+					e.preventDefault();
+					if(d != "down"){
+						d = "up";
+					}
+				}); 
+				$('.controls>.left').on('click', function(e) {
+					e.preventDefault();
+					if(d != "right"){
+						d = "left";
+					}
+				})
+				$('.controls>.right').on('click', function(e) {
+					e.preventDefault();
+					if(d != "left"){
+						d = "right";
+					}
+				})
+				$('.controls>.down').on('click', function(e) {
+					e.preventDefault();
+					if(d != "up"){
+						d = "down";
+					}
+				})  
+
+				$('.game_over .button').on('click', function(){
+					$('.game').hide();
+					$(this).closest('.game_over').animate({top:$(window).height()}, 500, function(){
+						$('.main_menu').show();			
+						$(this).hide(); 				
+					})
+				})
+
+				$('.main_menu .button').on('click', function(){
+					$(this).closest('.main_menu').hide();
+					$('.game').show();
+					init();	 
+				})
+
+				function init(){
+					d = "right";
+					create_snake();
+					create_food();
+					score = 0;
+					if(typeof game_loop != "undefined") clearInterval(game_loop);
+					game_loop = setInterval(paint, 200);
+				} 
+				
+				function create_snake(){
+					var length = 5;
+					snake_array = [];
+					for(var i = length-1; i>=0; i--){
+						snake_array.push({x: i, y:0});
+					}
+				}
+				
+				function create_food(){
+					food = {
+						x: Math.round(Math.random()*(w-cw)/cw), 
+						y: Math.round(Math.random()*(h-cw)/cw), 
+					};
+				}
+
+				function game_over(){	
+					window.clearInterval(game_loop);
+					if (score > hi_score){
+						hi_score = score;
+					}
+					$('.game_over').css('top',$(window).height()).css('display','table').animate({top:0}, 500, function(){
+						$(this).find('input').focus();
+					});
+				}
+
+				function paint(){
+					ctx.fillStyle = "black";
+					ctx.fillRect(0, 0, w, h);
+					ctx.strokeStyle = "white";
+					ctx.strokeRect(0, 0, w, h);
+					var nx = snake_array[0].x;
+					var ny = snake_array[0].y;
+					if(d == "right") nx++;
+					else if(d == "left") nx--;
+					else if(d == "up") ny--;
+					else if(d == "down") ny++;
+					if(nx == -1 || nx == w/cw || ny == -1 || ny == h/cw || check_collision(nx, ny, snake_array)){
+						game_over();
+						return;
+					}
+					if(nx == food.x && ny == food.y){
+						var tail = {x: nx, y: ny};
+						score++;
+						create_food();
+					} else {
+						var tail = snake_array.pop();
+						tail.x = nx; tail.y = ny;
+					}
+					
+					snake_array.unshift(tail);
+					
+					for(var i = 0; i < snake_array.length - 1; i++){
+						var c = snake_array[i];
+						paint_cell(c.x, c.y, 'blue');
+					}
+					var c = snake_array[snake_array.length - 1];
+					paint_cell(c.x, c.y, 'red');
+
+					paint_cell(food.x, food.y, 'blue');
+					var score_text = "Score: " + score;
+					var hi_score_text = "High Score: " + hi_score;
+      				ctx.fillStyle = 'white';
+      				ctx.textAlign="start"; 
+					ctx.font="15px Arial";
+					ctx.fillText(score_text, 5, h-5);
+					ctx.textAlign="end";  
+					ctx.fillText(hi_score_text, w-5, h-5);
+				}
+				
+				function paint_cell(x, y, color)				{
+					ctx.fillStyle = color;
+					ctx.fillRect(x*cw, y*cw, cw, cw);
+					ctx.strokeStyle = "black";
+					ctx.strokeRect(x*cw, y*cw, cw, cw);
+				}
+				
+				function check_collision(x, y, array){
+					for(var i = 0; i < array.length; i++)
+					{
+						if(array[i].x == x && array[i].y == y)
+						 return true;
+					}
+					return false;
+				}
+				
+				//Lets add the keyboard controls now
+				$(document).keydown(function(e){
+					var key = e.which;
+					//We will add another clause to prevent reverse gear
+					if(key == "37" && d != "right") d = "left";
+					else if(key == "38" && d != "down") d = "up";
+					else if(key == "39" && d != "left") d = "right";
+					else if(key == "40" && d != "up") d = "down";
+					//The snake is now keyboard controllable
+				})	
+			})
+		</script> 
+	</body>
+</html>
